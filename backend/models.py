@@ -25,7 +25,8 @@ class HoldIn(BaseModel):
 
 
 class ReopenIn(BaseModel):
-    mode: str = "作废重算"  # 或「增量补丁」——题面择一后落地，母仓仅空桩登记
+    mode: str = "作废重算"  # 本仓正确性口径已定甲路径（作废重算）；其余口径视为偏离窗重开册
+    fail_simulate: bool = False  # 夹具用：强制重开事务中段失败，验证状态与世代回滚
 
 
 class MaterializeIn(BaseModel):

@@ -25,7 +25,14 @@
 | 业务 LOC | ≥900（目标 1000+） |
 | 后端具名模块 | `db` / `auth` / `locks` / `windows_svc` / `ingest_svc` / `late_svc` / `materialize_svc` / `reconcile_svc` / `audit_svc` / `hold_svc` / `reopen_svc` |
 | 前端视图 | 业务窗 / 入账 / 迟到桶 / 物化 / 对账 / 审计争用 |
-| 空桩 | hold 晋升、迟到补入、分区物化、窗重开 |
+| 空桩 | hold 晋升、迟到补入、分区物化 |
+
+## 窗重开（已定口径）
+
+- 落库形态：**甲路径·作废重算**（唯一正确性口径，不与增量补丁混用）。重开同事务作废旧世代物化与窗内事件、`generation+1`、窗重新开启；失败则状态与世代整体回滚。
+- 窗重开册 `reopen_registry`：当天首开封定口径，当天禁止改口；偏离拒写并记「重开偏了」（审计 `reopen_deviated`）。
+- 重开锁 `reopen:{wid}`：两路同时重开同一窗口，后到只记争用。
+- 重开台账 / 窗口世代 / 物化列表（`materializations.generation`）/ 对账互证 / 审计五处同态。
 
 ## 为何能出多题
 

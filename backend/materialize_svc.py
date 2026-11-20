@@ -47,16 +47,21 @@ def materialize(
                 conn.commit()
                 raise HTTPException(500, "模拟物化失败（夹具用）")
             conn.execute(
-                """INSERT INTO materializations(window_id,status,row_count,total_amount,partition_key,created_at)
-                   VALUES (?,?,?,?,?,?)""",
-                (wid, "成功", rows["c"], rows["s"], partition, now),
+                """INSERT INTO materializations(window_id,status,row_count,total_amount,partition_key,generation,created_at)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (wid, "成功", rows["c"], rows["s"], partition, w["generation"], now),
             )
             write_audit(
                 conn,
                 user,
                 "materialize_ok",
                 str(wid),
-                {"row_count": rows["c"], "total_amount": rows["s"], "partition": partition},
+                {
+                    "row_count": rows["c"],
+                    "total_amount": rows["s"],
+                    "partition": partition,
+                    "generation": w["generation"],
+                },
             )
             conn.commit()
             return {

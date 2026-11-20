@@ -23,7 +23,7 @@ PRODUCT_META = {
         "hold_staging",
         "reopen",
     ],
-    "stubs": ["hold_release", "late_promote", "partition_mat", "reopen"],
+    "stubs": ["hold_release", "late_promote", "partition_mat"],
 }
 
 
@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS materializations(
   row_count INTEGER NOT NULL,
   total_amount REAL NOT NULL,
   partition_key TEXT,
+  generation INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS hold_staging(
@@ -123,6 +124,13 @@ CREATE TABLE IF NOT EXISTS reopen_ledger(
   mode TEXT NOT NULL,
   status TEXT NOT NULL,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reopen_registry(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day TEXT NOT NULL UNIQUE,
+  mode TEXT NOT NULL,
+  decided_by TEXT NOT NULL,
+  decided_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS reject_slips(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -241,8 +249,8 @@ def seed_if_empty(conn: sqlite3.Connection) -> None:
                 ),
             )
     conn.execute(
-        "INSERT INTO materializations(window_id,status,row_count,total_amount,partition_key,created_at) VALUES (?,?,?,?,?,?)",
-        (1, "成功", 1, 12.5, "W-1101-g1", "2026-11-02T00:10:00"),
+        "INSERT INTO materializations(window_id,status,row_count,total_amount,partition_key,generation,created_at) VALUES (?,?,?,?,?,?,?)",
+        (1, "成功", 1, 12.5, "W-1101-g1", 1, "2026-11-02T00:10:00"),
     )
     conn.execute(
         "INSERT INTO audit_trail(actor,action,target,payload,created_at) VALUES (?,?,?,?,?)",
@@ -250,9 +258,28 @@ def seed_if_empty(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """旧库文件继续挂：只加不删。物化单补世代列并按分区键回填。"""
+    import re
+
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(materializations)")}
+    if "generation" not in cols:
+        conn.execute(
+            "ALTER TABLE materializations ADD COLUMN generation INTEGER NOT NULL DEFAULT 1"
+        )
+        for r in conn.execute("SELECT id, partition_key FROM materializations"):
+            m = re.search(r"-g(\d+)$", r["partition_key"] or "")
+            if m:
+                conn.execute(
+                    "UPDATE materializations SET generation=? WHERE id=?",
+                    (int(m.group(1)), r["id"]),
+                )
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         ensure_users(conn)
         seed_if_empty(conn)
         conn.commit()

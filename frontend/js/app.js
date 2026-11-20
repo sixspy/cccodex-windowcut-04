@@ -29,6 +29,7 @@ createApp({
     const locks = ref([]);
     const holds = ref([]);
     const dash = ref({});
+    const reopenLedger = ref([]);
     const form = ref({
       window_name: "W-1102",
       biz_key: "ORD-9",
@@ -112,6 +113,9 @@ createApp({
       const d = await api.get("/api/dashboard");
       if (d === null) return;
       dash.value = d.body || {};
+      const rl = await api.get("/api/reopen-ledger");
+      if (rl === null) return;
+      reopenLedger.value = Array.isArray(rl.body.items) ? rl.body.items : [];
       if (windows.value.length) {
         const q = await api.get("/api/reconcile/" + windows.value[0].id);
         if (q === null) return;
@@ -148,13 +152,16 @@ createApp({
       if (q) recon.value = q.body || {};
     }
 
-    async function reopenStub(id) {
+    async function reopenWin(id) {
       actionErr.value = "";
-      const r = await api.post("/api/windows/" + id + "/reopen-stub", {
+      const r = await api.post("/api/windows/" + id + "/reopen", {
         mode: "作废重算",
       });
-      if (r && !r.ok) actionErr.value = r.body.detail || "重开空桩失败";
-      else if (r) actionErr.value = "重开空桩已登记";
+      if (r && !r.ok) actionErr.value = r.body.detail || "窗重开失败";
+      else if (r)
+        actionErr.value =
+          "已重开：g" + r.body.from_generation + "→g" + r.body.to_generation +
+          "，作废旧物化 " + r.body.voided_materializations + " 单";
       await refresh();
     }
 
@@ -209,6 +216,7 @@ createApp({
       locks,
       holds,
       dash,
+      reopenLedger,
       form,
       holdForm,
       actionErr,
@@ -221,7 +229,7 @@ createApp({
       closeWin,
       materialize,
       loadRecon,
-      reopenStub,
+      reopenWin,
       promoteLate,
       discardLate,
       partitionStub,

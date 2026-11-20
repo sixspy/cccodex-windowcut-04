@@ -22,8 +22,10 @@ def reconcile(wid: int, authorization: AuthHeader = None):
             (wid,),
         ).fetchone()
         mat = conn.execute(
-            "SELECT * FROM materializations WHERE window_id=? ORDER BY id DESC LIMIT 1",
-            (wid,),
+            """SELECT * FROM materializations
+               WHERE window_id=? AND status='成功' AND generation=?
+               ORDER BY id DESC LIMIT 1""",
+            (wid, w["generation"]),
         ).fetchone()
         late = conn.execute(
             "SELECT COUNT(*) c FROM late_bucket WHERE window_name=?",
@@ -40,6 +42,7 @@ def reconcile(wid: int, authorization: AuthHeader = None):
         )
         return {
             "window": dict(w),
+            "current_generation": w["generation"],
             "window_events": ev["c"],
             "window_amount": ev["s"],
             "materialized": dict(mat) if mat else None,
@@ -53,7 +56,9 @@ def reconcile(wid: int, authorization: AuthHeader = None):
 def reconcile_all(authorization: AuthHeader = None):
     require_user(authorization)
     with connect() as conn:
-        windows = conn.execute("SELECT id,name,status FROM windows ORDER BY id").fetchall()
+        windows = conn.execute(
+            "SELECT id,name,status,generation FROM windows ORDER BY id"
+        ).fetchall()
         items = []
         for w in windows:
             ev = conn.execute(
@@ -62,8 +67,10 @@ def reconcile_all(authorization: AuthHeader = None):
                 (w["id"],),
             ).fetchone()
             mat = conn.execute(
-                "SELECT * FROM materializations WHERE window_id=? ORDER BY id DESC LIMIT 1",
-                (w["id"],),
+                """SELECT * FROM materializations
+                   WHERE window_id=? AND status='成功' AND generation=?
+                   ORDER BY id DESC LIMIT 1""",
+                (w["id"], w["generation"]),
             ).fetchone()
             late = conn.execute(
                 "SELECT COUNT(*) c FROM late_bucket WHERE window_name=?",
@@ -79,6 +86,7 @@ def reconcile_all(authorization: AuthHeader = None):
                     "window_id": w["id"],
                     "name": w["name"],
                     "status": w["status"],
+                    "generation": w["generation"],
                     "aligned": aligned,
                     "window_events": ev["c"],
                     "late_bucket": late,

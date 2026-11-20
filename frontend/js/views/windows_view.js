@@ -16,7 +16,7 @@ export const windowsViewTemplate = `
           <button class="ghost" @click="closeWin(w.id)">关窗</button>
           <button class="ghost" @click="materialize(w.id)">物化</button>
           <button class="ghost" @click="loadRecon(w.id)">对账</button>
-          <button class="ghost" @click="reopenStub(w.id)">重开空桩</button>
+          <button class="ghost" @click="reopenWin(w.id)">窗重开·作废重算</button>
         </td>
       </tr>
     </tbody>

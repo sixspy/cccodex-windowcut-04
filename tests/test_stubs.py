@@ -19,7 +19,7 @@ def _auth(c):
     return {"Authorization": "Bearer " + tok}
 
 
-def test_hold_and_reopen_stubs():
+def test_hold_stub():
     c = TestClient(app)
     h = _auth(c)
     r = c.post(
@@ -35,12 +35,19 @@ def test_hold_and_reopen_stubs():
     assert r.status_code == 200
     hid = r.json()["hold_id"]
     assert c.post(f"/api/holds/{hid}/release-stub", headers=h).json()["stub"] is True
+
+
+def test_reopen_stub_retired():
+    """窗重开空桩已落地为真实写路径：旧空桩端点撤除，真端点接管。"""
+    c = TestClient(app)
+    h = _auth(c)
     c.post("/api/windows/2/close", headers=h)
-    stub = c.post(
-        "/api/windows/2/reopen-stub", headers=h, json={"mode": "增量补丁"}
-    ).json()
-    assert stub["stub"] is True
-    assert stub["mode"] == "增量补丁"
+    assert (
+        c.post("/api/windows/2/reopen-stub", headers=h, json={"mode": "增量补丁"}).status_code
+        == 404
+    )
+    r = c.post("/api/windows/2/reopen", headers=h, json={"mode": "作废重算"})
+    assert r.status_code == 200
     assert c.get("/api/reopen-ledger", headers=h).json()["items"]
 
 
